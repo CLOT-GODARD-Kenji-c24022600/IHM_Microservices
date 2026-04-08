@@ -45,9 +45,13 @@ Puis ouvrir:
 - `creer_menu.php`: creation d'un menu (nom createur + plats)
 - `commander.php`: creation d'une commande (client, adresse, date, quantites)
 
-## Structure
+## Architecture MVC (sans framework)
 
-- `includes/config.php`: constantes centralisees des URLs des services
-- `includes/api_client.php`: fonctions HTTP vers les APIs
-- `includes/header.php` et `includes/footer.php`: layout commun
-- `css/style.css`: styles partages
+- `index.php`, `creer_menu.php`, `commander.php`: points d'entree (front controllers)
+- `app/Controllers`: orchestration HTTP et validation
+- `app/Models`: acces aux APIs microservices
+- `app/Views`: templates HTML (layout + pages)
+- `app/config/config.php`: endpoints des services
+- `app/Core/View.php`: rendu commun des vues
+
+Cette organisation garde les URLs historiques tout en separant presentation, logique de controle et acces aux donnees.
