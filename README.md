@@ -45,13 +45,22 @@ Puis ouvrir:
 - `creer_menu.php`: creation d'un menu (nom createur + plats)
 - `commander.php`: creation d'une commande (client, adresse, date, quantites)
 
-## Architecture MVC (sans framework)
+## Architecture MVC legere sans framework
 
-- `index.php`, `creer_menu.php`, `commander.php`: points d'entree (front controllers)
-- `app/Controllers`: orchestration HTTP et validation
-- `app/Models`: acces aux APIs microservices
-- `app/Views`: templates HTML (layout + pages)
-- `app/config/config.php`: endpoints des services
-- `app/Core/View.php`: rendu commun des vues
+Cette partie IHM utilise une architecture **MVC legere** :
+
+- `index.php`, `creer_menu.php`, `commander.php` : **front controllers** qui demarrent la page cible.
+- `app/Controllers` : **controleurs** qui recoivent la requete, valident les donnees du formulaire et orchestrent le flux.
+- `app/Models` : **modele d'acces aux donnees** qui interroge les microservices REST via `ApiClient`.
+- `app/Views` : **vues** HTML qui affichent uniquement les donnees preparees par le controleur.
+- `app/Core/View.php` : rendu commun avec le layout header/footer.
+- `app/config/config.php` : centralisation des URLs des services.
+
+### Pourquoi ce choix ?
+
+- **Separation des responsabilites** : l'HTML reste dans les vues, la logique de traitement reste dans les controleurs, et l'acces aux APIs reste dans les modeles.
+- **Code plus simple a lire et a maintenir** : chaque fichier a un role clair, ce qui facilite les corrections avant rendu.
+- **Adaptation au projet** : comme l'IHM consomme des microservices REST, un MVC leger suffit sans ajouter de framework lourd.
+- **Bonne defense a l'oral** : cette structure montre une vraie organisation logicielle tout en restant pragmatique pour un projet scolaire.
 
 Cette organisation garde les URLs historiques tout en separant presentation, logique de controle et acces aux donnees.
