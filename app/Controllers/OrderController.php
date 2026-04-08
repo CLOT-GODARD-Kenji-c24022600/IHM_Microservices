@@ -29,70 +29,17 @@ final class OrderController
         $plats = $platModel->all();
         $menus = $menuModel->all();
 
-        $prixParPlat = [];
-        if (is_array($plats)) {
-            foreach ($plats as $plat) {
-                if (isset($plat['id'])) {
-                    $prixParPlat[(string) $plat['id']] = (float) ($plat['prix'] ?? 0);
-                }
-            }
-        }
-
-        $menusParId = [];
-        if (is_array($menus)) {
-            foreach ($menus as $menu) {
-                if (isset($menu['id'])) {
-                    $menusParId[(string) $menu['id']] = $menu;
-                }
-            }
-        }
+        $prixParPlat = $this->buildPrixParPlat($plats);
+        $menusParId = $this->buildMenusParId($menus);
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $nomClient = trim((string) ($_POST['nom_client'] ?? ''));
             $adresseLivraison = trim((string) ($_POST['adresse_livraison'] ?? ''));
             $dateLivraison = trim((string) ($_POST['date_livraison'] ?? ''));
-            $quantites = $_POST['quantites'] ?? [];
-
-            if (!is_array($quantites)) {
-                $quantites = [];
-            }
-
-            foreach ($quantites as $menuId => $quantiteBrute) {
-                $menuId = (string) $menuId;
-                $quantitesSaisies[$menuId] = max(0, min(20, (int) $quantiteBrute));
-            }
-
-            $menusCommandes = [];
-            $montantTotal = 0.0;
-
-            foreach ($quantitesSaisies as $menuId => $quantite) {
-                $menuId = (string) $menuId;
-
-                if ($quantite <= 0 || !isset($menusParId[$menuId])) {
-                    continue;
-                }
-
-                $menu = $menusParId[$menuId];
-                $platsDuMenu = $menu['plats'] ?? [];
-                if (!is_array($platsDuMenu)) {
-                    $platsDuMenu = [];
-                }
-
-                $prixUnitaire = 0.0;
-                foreach ($platsDuMenu as $platId) {
-                    $prixUnitaire += $prixParPlat[(string) $platId] ?? 0;
-                }
-
-                $sousTotal = $prixUnitaire * $quantite;
-                $montantTotal += $sousTotal;
-
-                $menusCommandes[] = [
-                    'menu_id' => (int) $menuId,
-                    'quantite' => $quantite,
-                    'prix_unitaire' => round($prixUnitaire, 2),
-                    'sous_total' => round($sousTotal, 2),
-                ];
-            }
+            $quantitesSaisies = $this->normalizeQuantites($_POST['quantites'] ?? []);
+            $commandeResultat = $this->buildOrderLines($quantitesSaisies, $menusParId, $prixParPlat);
+            $menusCommandes = $commandeResultat['menusCommandes'];
+            $montantTotal = $commandeResultat['montantTotal'];
 
             $dateLivraisonValide = false;
             if ($dateLivraison !== '') {
@@ -160,6 +107,108 @@ final class OrderController
             'plats' => $plats,
             'menus' => $menus,
         ]);
+    }
+
+    /**
+     * @param array<mixed>|null $plats
+     * @return array<string, float>
+     */
+    private function buildPrixParPlat(?array $plats): array
+    {
+        $prixParPlat = [];
+        if (!is_array($plats)) {
+            return $prixParPlat;
+        }
+
+        foreach ($plats as $plat) {
+            if (isset($plat['id'])) {
+                $prixParPlat[(string) $plat['id']] = (float) ($plat['prix'] ?? 0);
+            }
+        }
+
+        return $prixParPlat;
+    }
+
+    /**
+     * @param array<mixed>|null $menus
+     * @return array<string, array<mixed>>
+     */
+    private function buildMenusParId(?array $menus): array
+    {
+        $menusParId = [];
+        if (!is_array($menus)) {
+            return $menusParId;
+        }
+
+        foreach ($menus as $menu) {
+            if (isset($menu['id'])) {
+                $menusParId[(string) $menu['id']] = $menu;
+            }
+        }
+
+        return $menusParId;
+    }
+
+    /**
+     * @param mixed $quantites
+     * @return array<string, int>
+     */
+    private function normalizeQuantites($quantites): array
+    {
+        if (!is_array($quantites)) {
+            return [];
+        }
+
+        $quantitesSaisies = [];
+        foreach ($quantites as $menuId => $quantiteBrute) {
+            $quantitesSaisies[(string) $menuId] = max(0, min(20, (int) $quantiteBrute));
+        }
+
+        return $quantitesSaisies;
+    }
+
+    /**
+     * @param array<string, int> $quantitesSaisies
+     * @param array<string, array<mixed>> $menusParId
+     * @param array<string, float> $prixParPlat
+     * @return array{menusCommandes: array<int, array<string, int|float>>, montantTotal: float}
+     */
+    private function buildOrderLines(array $quantitesSaisies, array $menusParId, array $prixParPlat): array
+    {
+        $menusCommandes = [];
+        $montantTotal = 0.0;
+
+        foreach ($quantitesSaisies as $menuId => $quantite) {
+            if ($quantite <= 0 || !isset($menusParId[$menuId])) {
+                continue;
+            }
+
+            $menu = $menusParId[$menuId];
+            $platsDuMenu = $menu['plats'] ?? [];
+            if (!is_array($platsDuMenu)) {
+                $platsDuMenu = [];
+            }
+
+            $prixUnitaire = 0.0;
+            foreach ($platsDuMenu as $platId) {
+                $prixUnitaire += $prixParPlat[(string) $platId] ?? 0;
+            }
+
+            $sousTotal = $prixUnitaire * $quantite;
+            $montantTotal += $sousTotal;
+
+            $menusCommandes[] = [
+                'menu_id' => (int) $menuId,
+                'quantite' => $quantite,
+                'prix_unitaire' => round($prixUnitaire, 2),
+                'sous_total' => round($sousTotal, 2),
+            ];
+        }
+
+        return [
+            'menusCommandes' => $menusCommandes,
+            'montantTotal' => round($montantTotal, 2),
+        ];
     }
 }
 
