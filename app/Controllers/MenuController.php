@@ -22,23 +22,11 @@ final class MenuController
 
         $plats = $platModel->all();
 
-        $idsDisponibles = [];
-        if (is_array($plats)) {
-            foreach ($plats as $plat) {
-                if (isset($plat['id'])) {
-                    $idsDisponibles[] = (string) $plat['id'];
-                }
-            }
-        }
+        $idsDisponibles = $this->extractAvailablePlatIds($plats);
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $createur = trim((string) ($_POST['createur'] ?? ''));
-            $platsSelectionnes = $_POST['plats_selectionnes'] ?? [];
-            if (!is_array($platsSelectionnes)) {
-                $platsSelectionnes = [];
-            }
-
-            $platsSelectionnes = array_values(array_unique(array_map('strval', $platsSelectionnes)));
+            $platsSelectionnes = $this->normalizeSelectedPlats($_POST['plats_selectionnes'] ?? []);
 
             if ($plats === null) {
                 $message = 'Erreur : impossible de charger les plats. Verifie que json-server tourne sur le port 3003.';
@@ -55,11 +43,7 @@ final class MenuController
                     $message = 'La selection contient des plats invalides. Recharge la page et recommence.';
                     $messageType = 'error';
                 } else {
-                    $nouveauMenu = [
-                        'createur' => $createur,
-                        'date_creation' => date('Y-m-d'),
-                        'plats' => array_map('intval', $platsSelectionnes),
-                    ];
+                    $nouveauMenu = $this->buildMenuPayload($createur, $platsSelectionnes);
 
                     $reponse = $menuModel->create($nouveauMenu);
                     if ($reponse !== null) {
@@ -82,6 +66,52 @@ final class MenuController
             'platsSelectionnes' => $platsSelectionnes,
             'plats' => $plats,
         ]);
+    }
+
+    /**
+     * @param array<mixed>|null $plats
+     * @return array<int, string>
+     */
+    private function extractAvailablePlatIds(?array $plats): array
+    {
+        if (!is_array($plats)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($plats as $plat) {
+            if (isset($plat['id'])) {
+                $ids[] = (string) $plat['id'];
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param mixed $platsSelectionnes
+     * @return array<int, string>
+     */
+    private function normalizeSelectedPlats($platsSelectionnes): array
+    {
+        if (!is_array($platsSelectionnes)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('strval', $platsSelectionnes)));
+    }
+
+    /**
+     * @param array<int, string> $platsSelectionnes
+     * @return array<string, mixed>
+     */
+    private function buildMenuPayload(string $createur, array $platsSelectionnes): array
+    {
+        return [
+            'createur' => $createur,
+            'date_creation' => date('Y-m-d'),
+            'plats' => array_map('intval', $platsSelectionnes),
+        ];
     }
 }
 
